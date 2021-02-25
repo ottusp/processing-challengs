@@ -6,45 +6,85 @@ fun main() {
 
 class MainProcessing: PApplet() {
 
-    var cols = 0
-    var rows = 0
-    val scl = 20f
+    private var cols = 0
+    private var rows = 0
+    private var w = 1200
+    private var h = 800
+    private val scl = 10f
+
+    private var globalAngle = 0f
+    private var zoom = 0f
+    private var flying = 0f
+
+    private lateinit var terrain: Array<Array<Float>>
 
     override fun settings() {
         size(600, 400, P3D)
     }
 
     override fun setup() {
-        cols = (width / scl).toInt()
-        rows = (height / scl).toInt()
+        cols = (w / scl).toInt() + 1
+        rows = (h / scl).toInt()
+
+        var xoff = 0f
+        terrain = Array(cols) { x ->
+            xoff += 0.3f
+            var yoff = 0f
+            Array(rows) { y ->
+                yoff += 0.3f
+                map(noise(xoff*1f, yoff*1f), 0f, 1f, -50f, 50f)
+            }
+        }
+
+        frameRate(60f)
     }
 
     override fun draw() {
+        val minHeight = -100f
+        val maxHeight = 100f
+
         background(0)
-        stroke(255)
         noFill()
 
-        translate(width/2f, height/2f)
-        rotateX(PI/3)
-        translate(-width/2f, -height/2f)
+        flying += 0.05f
+        var xoff = 0f
+        repeat(cols) { x ->
+            xoff += 0.05f
+            var yoff = flying
+            repeat(rows) { y ->
+                yoff += 0.05f
+                terrain[x][y] = map(noise(xoff*1f, yoff*1f), 0f, 1f, minHeight, maxHeight)
+            }
+        }
 
-        repeat(rows) { y ->
+        translate(width/2f, height/2f)
+        rotateX(globalAngle)
+        translate(-w/2f, -h/2f)
+
+        repeat(rows - 1) { y ->
             beginShape(TRIANGLE_STRIP)
             repeat(cols) { x ->
-                vertex(x*scl, y*scl)
-                vertex(x*scl, (y+1)*scl)
+                val grey = map(terrain[x][y], minHeight, maxHeight, 150f, 255f)
+                stroke(grey)
+                vertex3D(zoom, x*scl, y*scl, terrain[x][y])
+                vertex3D(zoom, x*scl, (y+1)*scl, terrain[x][y+1])
+//                vertex(x*scl, y*scl, terrain[x][y])
+//                vertex(x*scl, (y+1)*scl, terrain[x][(y+1) % rows])
             }
             endShape()
         }
+
+        globalAngle = (mouseX/(width * 1f)) * PI
+        zoom = (mouseY/(height * 1f)) * PI/3f
+
     }
 
-    private fun vertex3d(x: Float, y: Float) {
+    private fun vertex3D(angle: Float, x: Float, y: Float, z: Float) {
+        val translatedY = h/2 - y
+        val rotatedY = cos(angle) * translatedY + h/2
 
-        val angle = PI/3
-
-        val newX = x * sin(angle) - x * cos(angle)
-        val newY = y * cos(angle) - y * sin(angle)
-
-        vertex(newX, newY)
+        val translatedX = w/2 - x
+        val rotatedX = cos(angle) * translatedX + w/2
+        vertex(rotatedX, rotatedY, z)
     }
 }
